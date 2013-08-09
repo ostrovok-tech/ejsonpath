@@ -67,8 +67,8 @@ Rootsymbol expr.
 
 expr -> '$' steps : {root, '$2'}.
 
-steps -> step : {step, ['$1']}.
-steps -> step step : append_step('$1', '$2').
+steps -> step : {steps, ['$1']}.
+steps -> step steps : append_step('$1', '$2').
 
 step -> predicate : {child, '$1'}.
 step -> axis raw_predicate : {'$1', '$2'}.  %% WTF?
@@ -92,7 +92,7 @@ raw_predicate -> '*' : {refine, value('$1')}.
 %% ?(@==100500)
 binary_expr -> '?' '(' script ')' : {bin_expr, '$3'}.
 
-index_expr -> '(' script ')' : {index_expr, '$3'}.
+index_expr -> '(' script ')' : {index_expr, '$2'}.
 
 script -> operand : '$1'.
 script -> script bin_operator script : {bin_op, '$2', '$1', '$3'}.
@@ -134,5 +134,5 @@ value({_Token, _Line, Value}) ->
 append_comma_slice(Sint, {slice_list, List}) ->
     {slice_list, [Sint | List]}.
 
-append_step(Step, {step, Steps}) ->
-    {step, [Step | Steps]}.
+append_step(Step, {steps, Steps}) ->
+    {steps, [Step | Steps]}.
