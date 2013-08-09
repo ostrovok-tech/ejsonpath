@@ -1,0 +1,12 @@
+% -*- mode: erlang -*-
+{application, ejsonpath,
+ [
+  {description, "JSONPath for erlang"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
