@@ -55,7 +55,8 @@ Nonterminals
 expr axis
 predicate step steps raw_predicate
 slice comma_slice sint index_expr
-binary_expr script operand bin_operator.
+binary_expr script operand bin_operator
+function_call.
 
 Terminals
 '$' '..' '@' '[' ']' '.' key int
@@ -96,6 +97,7 @@ index_expr -> '(' script ')' : {index_expr, '$2'}.
 
 script -> operand : '$1'.
 script -> script bin_operator script : {bin_op, '$2', '$1', '$3'}.
+script -> key '(' ')' : {function_call, value('$1'), []}.
 
 operand -> string : value('$1').
 operand -> '@' : value('$1').
@@ -118,11 +120,14 @@ slice -> ':' sint : {slice, 0, value('$2'), 1}.
 
 %% [1]
 %% [1,2,3]
+%% ["a","b"]
 comma_slice -> sint : {slice_list, [value('$1')]}.
 comma_slice -> sint ',' comma_slice : append_comma_slice(value('$1'), '$3').
+comma_slice -> string : {slice_list, [value('$1')]}.
+comma_slice -> string ',' comma_slice : append_comma_slice(value('$1'), '$3').
 
 sint -> int : '$1'.
-sint -> '-' int : {int, -value('$2')}.
+sint -> '-' int : {int, 0, -value('$2')}.
 
 
 Erlang code.
