@@ -9,7 +9,7 @@
 
 -export([execute/2, execute/3]).
 
--export_type([json_node/0]).
+-export_type([json_node/0, jsonpath_funspec/0, jsonpath_fun/0]).
 
 -record(
    context,
@@ -18,31 +18,35 @@
     functions=[]}).
 
 
+-type jsonpath() :: string().
 -type json_node() :: null                           % null
                      | boolean()                    % true/false
                      | binary()                     % string
                      | number()                     % int/float
                      | [json_node()]                % array
                      | {[{binary(), json_node()}]}. % hash (object)
--type jsonpath() :: string().
+
+-type jsonpath_funspec() :: {Name::binary(), Fun::jsonpath_fun()} .
+-type jsonpath_fun() :: fun(({CurrentNode::json_node(), RootDoc::json_node()}, Args::[any()]) ->
+                                   Return::json_node()).
 
 
 execute(Path, Doc) ->
     execute(Path, Doc, []).
 
--spec execute(jsonpath(), json_node(), []) -> [json_node()].
+-spec execute(jsonpath(), json_node(), [jsonpath_funspec()]) -> [json_node()].
 execute(Path, Doc, Functions) ->
     {ok, Tokens, _} = ejsonpath_scan:string(Path),
     {ok, Tree} = ejsonpath_parse:parse(Tokens),
     Context = #context{root=Doc, set=[], functions=Functions},
-    try
-        #context{set=Result} = execute_tree(Tree, Context),
-        Result
-    catch Class:Reason ->
-            io:format(user, "~p~n~p~n~p~n",
-                      [Class, Reason, erlang:get_stacktrace()]),
-            {error, Class, Reason, erlang:get_stacktrace()}
-    end.
+    %% try
+    #context{set=Result} = execute_tree(Tree, Context),
+    Result.
+    %% catch Class:Reason ->
+    %%         io:format(user, "~p~n~p~n~p~n",
+    %%                   [Class, Reason, erlang:get_stacktrace()]),
+    %%         {error, Class, Reason, erlang:get_stacktrace()}
+    %% end.
 
 execute_tree({root, {steps, Steps}}, #context{root=Root} = Ctx) ->
     execute_step(Steps, Ctx#context{set=[Root]}).
@@ -65,8 +69,12 @@ apply_predicate(Key, {Pairs}, hash, _Ctx) when is_binary(Key) ->
     end;
 apply_predicate(Key, _, _, _Ctx) when is_binary(Key) ->
     [];
-%% apply_predicate({index_expr, Script}, Ctx) ->
-%%     index_value(eval_script(Script, Ctx));
+apply_predicate({index_expr, Script}, Hash, hash, Ctx) ->
+    Key = eval_script(Script, Hash, Ctx),
+    apply_predicate(Key, Hash, hash, Ctx);
+apply_predicate({index_expr, Script}, L, array, Ctx) ->
+    Idx = eval_script(Script, L, Ctx),
+    apply_predicate({slice_list, [Idx]}, L, array, Ctx);
 apply_predicate({bin_expr, Script}, {Pairs}, hash, Ctx) ->
     [V || {_K, V} <- Pairs, boolean_value(eval_script(Script, V, Ctx))];
 apply_predicate({bin_expr, Script}, L, array, Ctx) ->
@@ -74,6 +82,7 @@ apply_predicate({bin_expr, Script}, L, array, Ctx) ->
 apply_predicate({slice_list, Items}, L, array, _Ctx) ->
     slice_list(Items, L, length(L));
 apply_predicate({slice_list, Items}, {Pairs}, hash, _Ctx) ->
+    %% FIXME: don't insert undefined when key missing!
     [proplists:get_value(K, Pairs)
     || K <- Items];
 apply_predicate({slice, Begin, End, Step}, L, array, _Ctx) ->
@@ -95,7 +104,8 @@ eval_script({bin_op, _Op, _L, _R}, _, _) ->
 eval_script('@', CurNode, _Ctx) ->
     CurNode.
 
-
+%% comma-slices for arrays
+%% [1,2,-1,4]
 slice_list([Idx | Rest], L, Len) when Idx < 0 ->
     NewIdx = Len + Idx,
     slice_list([NewIdx | Rest], L, Len);
@@ -104,7 +114,8 @@ slice_list([Idx | Rest], L, Len) ->
 slice_list([], _, _) ->
     [].
 
-
+%% python slices for arrays
+%% [1:-2:1]
 slice_step(Begin, End, S, L) when (Begin < 0) ->
     %% [-5:]
     slice_step(max(length(L) + Begin, 0), End, S, L);
@@ -135,16 +146,17 @@ boolean_value(_) ->
 
 
 
-
-
-
 element_type(L) when is_list(L) ->
     array;
 element_type({L}) when is_list(L) ->
     hash;
-element_type({_, _}) ->
-    hash_pair;
+%% element_type({_, _}) ->
+%%     hash_pair;
 element_type(Bin) when is_binary(Bin) ->
     string;
 element_type(Num) when is_number(Num) ->
-    number.
+    number;
+element_type(Bool) when is_boolean(Bool) ->
+    boolean;
+element_type(null) ->
+    null.

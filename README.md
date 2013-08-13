@@ -4,7 +4,10 @@ eJSONPath - jsonpath for erlang
 eJSONPath is pure-erlang implementation of [JSONPath](http://goessner.net/articles/JsonPath/).
 It uses jiffy JSON structure (`{[ {key(), value()}, ...]}` for structs) and implements most of the
 JSONPath description (I don't say specification, because there is no such thing like jsonpath spec).
-Robust extensible parser (leex + yecc).
+
+* Robust extensible parser (leex + yecc).
+* Extensible by custom functions.
+* No dependencies (but you may want jiffy as json parser).
 
 Examples
 --------
@@ -20,8 +23,9 @@ Doc = jiffy:decode("test/doc.json").
  <<"Nigel Rees">>] = ejsonpath:execute("$.store.book[0]['category','author']", Doc).
 
 %% return only reference book authors
+%% `Funs' is a list of `{Name, Fun}' pairs (see Fun spec on sources)
 Funs = [
-{<<"filter_reference">>,        %% {<<fun name>>, fun body} pairs
+{<<"filter_reference">>,
  fun({{Pairs}, _Doc}, []) ->
      case proplists:get_value(<<"category">>, Pairs) of
          <<"reference">> -> true;
@@ -58,7 +62,7 @@ as close as possible.
 +-----------------------+---------------------+-----------+
 |Eval binary filter     | `$[?(true)]`        | Partial   |
 +-----------------------+---------------------+-----------+
-|Eval index             | `$[('one')]`        | N         |
+|Eval index             | `$[('one')]`        | Partial   |
 +-----------------------+---------------------+-----------+
 |Recursive descent      | `..`                | N         |
 +-----------------------+---------------------+-----------+
@@ -75,11 +79,12 @@ TODO
 ----
 
 * Implement missing features
-** Python slicing (need support for step. Currently only step == 1 supported)
+** Python slicing step support. (Currently only step==1 supported)
 ** Recursive descent (supported by parser, need evaluator)
-** Eval index (suported by parser, need evaluator)
-** Eval filter / index - allow path expressions `$[?(@.category=='reference')]`
+** Eval filter / index - allow path expressions and operators `$[?(@.category=='reference')]`
 ** Eval filter / index - allow function arguments `$[allow_only('reference')]`
+* License
+* Support for alternative JSON representations (mochijson2, EEP-18)
 
 Other implementations
 ---------------------
