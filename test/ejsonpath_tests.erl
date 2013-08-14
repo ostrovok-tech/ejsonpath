@@ -71,6 +71,9 @@ all_test_() ->
              {"Bin-eval array function call",
               "$.store[?(my_fun())].color", [],
               [{<<"my_fun">>, fun(_, []) -> false end}]},
+             {"Bin-eval array function call with args",
+              "$.store[?(my_fun('a1', 42))].color", [],
+              [{<<"my_fun">>, fun(_, [<<"a1">>, 42]) -> false end}]},
 
              {"Bin-eval array function call",
               "$.store.book[?(filter_reference())].author", [<<"Nigel Rees">>],

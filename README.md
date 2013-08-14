@@ -13,7 +13,8 @@ Examples
 --------
 
 ```erlang
-Doc = jiffy:decode("test/doc.json").
+{ok, Bin} = file:read_file("test/doc.json").
+Doc = jiffy:decode(Bin).
 
 %% return 1'st book author
 [<<"Nigel Rees">>] = ejsonpath:execute("$.store.book[0].author", Doc).
@@ -25,15 +26,16 @@ Doc = jiffy:decode("test/doc.json").
 %% return only reference book authors
 %% `Funs' is a list of `{Name, Fun}' pairs (see Fun spec on sources)
 Funs = [
-{<<"filter_reference">>,
- fun({{Pairs}, _Doc}, []) ->
+{<<"filter_category">>,
+ fun({{Pairs}, _Doc}, [CategoryName]) ->
      case proplists:get_value(<<"category">>, Pairs) of
-         <<"reference">> -> true;
+         CategoryName -> true;
          _ -> false
      end
  end}
 ],
-[<<"Nigel Rees">>] = ejsonpath:execute("$.store.book[?(filter_reference())].author", Doc, Funs).
+[<<"Nigel Rees">>] = ejsonpath:execute(
+                     "$.store.book[?(filter_category('reference'))].author", Doc, Funs).
 ```
 More examples in tests.
 
@@ -58,20 +60,23 @@ as close as possible.
 +-----------------------+---------------------+-----------+
 |Asterisk (hash, array) | `$.one.*` `$.one[*]`| Y         |
 +-----------------------+---------------------+-----------+
-|Python-slicing         | `$[1:-1:2]`         | Partial   |
+|Python-slicing         | `$[1:-1:2]`         | Partial*  |
 +-----------------------+---------------------+-----------+
-|Eval binary filter     | `$[?(true)]`        | Partial   |
+|Eval binary filter     | `$[?(true)]`        | Partial** |
 +-----------------------+---------------------+-----------+
-|Eval index             | `$[('one')]`        | Partial   |
+|Eval index             | `$[('one')]`        | Partial** |
 +-----------------------+---------------------+-----------+
 |Recursive descent      | `..`                | N         |
 +-----------------------+---------------------+-----------+
+
+* Only step=1 supported now
+** Very limited scripting language: string, integer and function calls
 ```
 
 Most of the missing features can be implemented as custom functions
 
 ```
-$.one[?( custom_function_call() )]
+$.one[?( custom_function_call('arg1', 42) )]
 $.two[( custom_function_call() )]
 ````
 
@@ -79,10 +84,10 @@ TODO
 ----
 
 * Implement missing features
-** Python slicing step support. (Currently only step==1 supported)
-** Recursive descent (supported by parser, need evaluator)
-** Eval filter / index - allow path expressions and operators `$[?(@.category=='reference')]`
-** Eval filter / index - allow function arguments `$[allow_only('reference')]`
+ * Python slicing step support. (Currently only step==1 supported)
+ * Recursive descent (supported by parser, need evaluator)
+ * Eval filter / index - allow path expressions and operators `$[?(@.category)]`
+ * Eval filter / index - allow binary operators `$[?(@.category!='reference')]`
 * License
 * Support for alternative JSON representations (mochijson2, EEP-18)
 

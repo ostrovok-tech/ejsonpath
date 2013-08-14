@@ -56,7 +56,7 @@ expr axis
 predicate step steps raw_predicate
 slice comma_slice sint index_expr
 binary_expr script operand bin_operator
-function_call.
+function_call function_args function_argument.
 
 Terminals
 '$' '..' '@' '[' ']' '.' key int
@@ -97,7 +97,17 @@ index_expr -> '(' script ')' : {index_expr, '$2'}.
 
 script -> operand : '$1'.
 script -> script bin_operator script : {bin_op, '$2', '$1', '$3'}.
-script -> key '(' ')' : {function_call, value('$1'), []}.
+script -> function_call : '$1'.
+
+function_call -> key '(' ')' : {function_call, value('$1'), []}.
+function_call -> key '(' function_args ')' : {function_call, value('$1'), '$3'}.
+
+function_args -> function_argument : ['$1'].
+function_args -> function_argument ',' function_args : ['$1' | '$3'].
+
+%% TODO: function_argument == operand
+function_argument -> string : value('$1').
+function_argument -> sint : value('$1').
 
 operand -> string : value('$1').
 operand -> '@' : value('$1').
