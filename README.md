@@ -88,7 +88,6 @@ TODO
  * Recursive descent (supported by parser, need evaluator)
  * Eval filter / index - allow path expressions and operators `$[?(@.category)]`
  * Eval filter / index - allow binary operators `$[?(@.category!='reference')]`
-* License
 * Support for alternative JSON representations (mochijson2, EEP-18)
 
 Other implementations
@@ -102,3 +101,8 @@ Other implementations
 * [Limited python impl](https://github.com/kennknowles/python-jsonpath-rw) - limited Python implementation
 * [Online evaluator](http://ashphy.com/JSONPathOnlineEvaluator/) - realy useful only with patch
 `window.dump = function(v) { return JSON.stringify(v, null, "    ") }`
+
+License
+-------
+
+Apache v2
