@@ -12,7 +12,7 @@ Rules.
 \] : {token, {']', TokenLine}}.
 \. : {token, {'.', TokenLine}}.
 
-[a-z][a-z0-9_]* : {token, {key, TokenLine, list_to_binary(TokenChars)}}.
+[a-zA-Z][a-zA-Z0-9_]* : {token, {key, TokenLine, list_to_binary(TokenChars)}}.
 [0-9]+ : {token, {int, TokenLine, list_to_integer(TokenChars)}}.
 
 %% indexing

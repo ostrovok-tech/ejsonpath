@@ -26,6 +26,11 @@
     "bicycle": {
       "color": "red",
       "price": 19.95
+    },
+    "LOLs": {
+      "Cats": "yes",
+      "Dogs": "yes",
+      "CHEEZBURG": "no"
     }
   }
 }
