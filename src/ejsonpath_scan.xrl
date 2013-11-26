@@ -32,6 +32,8 @@ Rules.
 && : {token, {'&&', TokenLine}}.
 \+ : {token, {'+', TokenLine}}.
 \- : {token, {'-', TokenLine}}.
+\/ : {token, {'/', TokenLine}}.
+% \* : {token, {'*', TokenLine}}.
 
 [\s]+ : skip_token.
 

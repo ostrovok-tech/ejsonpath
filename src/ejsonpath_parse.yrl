@@ -61,10 +61,16 @@ function_call function_args function_argument.
 Terminals
 '$' '..' '@' '[' ']' '.' key int
 '*' ',' ':'
-'?' '(' ')' string '==' '&&' '+' '-'.
+'?' '(' ')' string '==' '&&' '+' '-' '/'.
 
 Rootsymbol expr.
 
+Nonassoc 200 '=='.
+Left 300 '+'.
+Left 300 '-'.
+Left 400 '/'.
+Left 400 '*'.
+Nonassoc 400 '&&'.
 
 expr -> '$' steps : {root, '$2'}.
 
@@ -82,7 +88,7 @@ predicate -> '[' index_expr ']' : {refine, '$2'}.
 predicate -> '[' slice ']' : {refine, '$2'}.
 predicate -> '[' comma_slice ']' : {refine, '$2'}.
 predicate -> '[' '*' ']' : {refine, value('$2')}.
-predicate -> '[' string ']' : {refine, value('$2')}.
+% predicate -> '[' string ']' : {refine, value('$2')}. this one defined in 'comma_slice' rule
 
 raw_predicate -> key : {refine, value('$1')}.
 raw_predicate -> '*' : {refine, value('$1')}.
@@ -118,6 +124,8 @@ bin_operator -> '==' : value('$1').
 bin_operator -> '&&' : value('$1').
 bin_operator -> '+' : value('$1').
 bin_operator -> '-' : value('$1').
+bin_operator -> '/' : value('$1').
+bin_operator -> '*' : value('$1').
 
 %% [1:-1]
 %% [1:-1:2]
