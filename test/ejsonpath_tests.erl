@@ -84,6 +84,23 @@ all_test_() ->
                         end
                 end}]},
 
+             {"Script simple path",
+              "$.store.book[?(@.isbn)].price", [8.99, 22.99]},
+             {"Script greater than expr",
+              "$.store.book[?(@.price > 9)].isbn", [<<"0-395-19395-8">>]},
+             {"Script equality expr",
+              "$.store.book[?('reference' == @.category)].author",
+              [<<"Nigel Rees">>]},
+             {"Script inequality expr",
+              "$.store.book[?(@.category != 'fiction')].author",
+              [<<"Nigel Rees">>]},
+             {"Script comparing constants",
+              "$.store.book[?('asdf'=='asdf')].category",
+              [<<"reference">>, <<"fiction">>, <<"fiction">>, <<"fiction">>]},
+             {"Script comparing paths",
+              "$.store.book[?(@.category == @.category)].category",
+              [<<"reference">>, <<"fiction">>, <<"fiction">>, <<"fiction">>]},
+
              {"Index-eval on array",
               "$.store.book[(1)].author", [<<"Evelyn Waugh">>]},
              {"Index-eval on hash",

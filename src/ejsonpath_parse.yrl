@@ -61,11 +61,14 @@ function_call function_args function_argument.
 Terminals
 '$' '..' '@' '[' ']' '.' key int
 '*' ',' ':'
-'?' '(' ')' string '==' '&&' '+' '-' '/'.
+'?' '(' ')' string '==' '!=' '<' '>' '&&' '+' '-' '/'.
 
 Rootsymbol expr.
 
 Nonassoc 200 '=='.
+Nonassoc 200 '!='.
+Nonassoc 200 '<'.
+Nonassoc 200 '>'.
 Left 300 '+'.
 Left 300 '-'.
 Left 400 '/'.
@@ -117,10 +120,14 @@ function_argument -> sint : value('$1').
 
 operand -> string : value('$1').
 operand -> '@' : value('$1').
+operand -> '@' steps : '$2'.
 operand -> int : value('$1').
 %% operand -> expr.
 
 bin_operator -> '==' : value('$1').
+bin_operator -> '!=' : value('$1').
+bin_operator -> '>' : value('$1').
+bin_operator -> '<' : value('$1').
 bin_operator -> '&&' : value('$1').
 bin_operator -> '+' : value('$1').
 bin_operator -> '-' : value('$1').
