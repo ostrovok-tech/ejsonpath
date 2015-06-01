@@ -29,6 +29,9 @@ Rules.
 \'[^']*\' : {token, {string, TokenLine, list_to_binary(string:substr(TokenChars, 2, TokenLen - 2))}}.
 
 == : {token, {'==', TokenLine}}.
+!= : {token, {'!=', TokenLine}}.
+< : {token, {'<', TokenLine}}.
+> : {token, {'>', TokenLine}}.
 && : {token, {'&&', TokenLine}}.
 \+ : {token, {'+', TokenLine}}.
 \- : {token, {'-', TokenLine}}.

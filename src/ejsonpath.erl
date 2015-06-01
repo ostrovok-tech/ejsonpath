@@ -109,10 +109,29 @@ eval_script(Idx, _, _) when is_number(Idx) ->
 eval_script({function_call, Name, Args}, CurNode, #context{functions=Funs, root=Root}) ->
     Fun = proplists:get_value(Name, Funs),
     Fun({CurNode, Root}, Args);
-eval_script({bin_op, _Op, _L, _R}, _, _) ->
-    error({not_implemented, bin_op});
+eval_script({bin_op, '==', L, R}, CurNode, Ctx) ->
+    eval_binary_op(L, R, CurNode, Ctx, fun(X, Y) -> X == Y end);
+eval_script({bin_op, '!=', L, R}, CurNode, Ctx) ->
+    eval_binary_op(L, R, CurNode, Ctx, fun(X, Y) -> X /= Y end);
+eval_script({bin_op, '>', L, R}, CurNode, Ctx) ->
+    eval_binary_op(L, R, CurNode, Ctx, fun(X, Y) -> X > Y end);
+eval_script({bin_op, '<', L, R}, CurNode, Ctx) ->
+    eval_binary_op(L, R, CurNode, Ctx, fun(X, Y) -> X < Y end);
+eval_script({bin_op, Op, _L, _R}, _, _) ->
+    error({not_implemented, bin_op, Op});
+eval_script({steps, Steps}, CurNode, Ctx) ->
+    #context{set=Set} = execute_step(Steps, Ctx#context{set=[CurNode]}),
+    Set;
 eval_script('@', CurNode, _Ctx) ->
     CurNode.
+
+eval_binary_op(LScript, RScript, CurNode, Ctx, Op) ->
+    case {eval_script(LScript, CurNode, Ctx), eval_script(RScript, CurNode, Ctx)} of
+        {[L], [R]} -> Op(L, R);
+        { L,  [R]} -> Op(L, R);
+        {[L],  R } -> Op(L, R);
+        { L,   R } -> Op(L, R)
+    end.
 
 %% comma-slices for arrays
 %% [1,2,-1,4]
