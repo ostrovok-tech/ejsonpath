@@ -1,0 +1,58 @@
+{
+    "name": "Korg The Destroyer",
+    "class": "Fighter",
+    "awesome": true,
+    "nested": {
+        "name": "Korgy Korg",
+        "class": "Fighter",
+        "specialization": "Champion",
+        "awesome": true,
+        "awesome levels": "over 9000"
+    },
+    "stats": {
+        "strength": 22,
+        "dexterity": 12,
+        "constitution": 12,
+        "resistance": 12,
+        "intelligence": 8
+    },
+    "skills": {
+        "bash own face": {
+            "description": "PC will bash own face in a fit of rage to inspire their team",
+            "effects": {
+                "aoe buff": {
+                    "area": "tiles",
+                    "tiles": "12x12",
+                    "target": "ally"
+                },
+                "aoe debuff": {
+                    "area": "tiles",
+                    "tiles": "24x24",
+                    "target": "enemy"
+                },
+                "charisma buff": {
+                    "area": "self",
+                    "+1 Charisma": "temporary point on charisma for the rest of the day"
+                }
+            }
+        },
+        "cooking": {
+            "description": "PC is able to cook tasty meals",
+            "effects": {
+                "increased healing on rest": {
+                    "temporary hitpoints": "each person resting with PC will gain 5 temporary hitpoints"
+                }
+            }
+        }
+    },
+    "metadata": {
+        "self": "{\"name\":\"Korg The Destroyer\",\"class\":\"Fighter\",\"stats\":{\"strength\":22,\"dexterity\":12,\"constitution\":12,\"resistance\":12,\"intelligence\":8},\"skills\":{\"bash own face\":{\"description\":\"PC will bash own face in a fit of rage to inspire their team\",\"effects\":{\"aoe buff\":{\"area\":\"tiles\",\"tiles\":\"12x12\",\"target\":\"ally\"},\"aoe debuff\":{\"area\":\"tiles\",\"tiles\":\"24x24\",\"target\":\"enemy\"},\"charisma buff\":{\"area\":\"self\",\"+1 Charisma\":\"temporary point on charisma for the rest of the day\"}}},\"cooking\":{\"description\":\"PC is able to cook tasty meals\",\"effects\":{\"increased healing on rest\":{\"temporary hitpoints\":\"each person resting with PC will gain 5 temporary hitpoints\"}}}},\"metadata\":{\"self\":\"\",\"date taken\":\"Mon 23 Sep 2019 10:40:33 AM EDT\",\"game difficulty\":\"ultra super permadeath hardcore\"}}",
+        "date taken": "Mon 23 Sep 2019 10:40:33 AM EDT",
+        "game_difficulty": "ultra super permadeath hardcore"
+    },
+    "fallen enemies": [
+        "evil lord", "XXxx 3V1L L0RD xxXX", "reason", "Greg the Evil Guy",
+        "too many goblins", "imps", "trolls", "beehive (it was a bad time)",
+        5, false, "dignity"
+    ]
+}
