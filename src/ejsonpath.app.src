@@ -2,11 +2,13 @@
 {application, ejsonpath,
  [
   {description, "JSONPath for erlang"},
-  {vsn, "0.0.1"},
+  {vsn, "0.1.0"},
   {registered, []},
   {applications, [
                   kernel,
                   stdlib
                  ]},
-  {env, []}
+  {env, []},
+  {licenses, ["Apache 2.0"]},
+  {links, [{"GitHub", "https://github.com/ostrovok-team/ejsonpath"}]}
  ]}.

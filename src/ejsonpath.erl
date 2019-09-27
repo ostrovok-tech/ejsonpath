@@ -19,7 +19,7 @@
 
 -export([execute/2, execute/3]).
 
--export_type([json_node/0, jsonpath_funspec/0, jsonpath_fun/0]).
+-export_type([json_node/0, jsonpath_funspecs/0, jsonpath_fun/0]).
 
 -record(
    context,
@@ -34,17 +34,21 @@
                      | binary()                     % string
                      | number()                     % int/float
                      | [json_node()]                % array
-                     | {[{binary(), json_node()}]}. % hash (object)
+                     | {[{binary(), json_node()}]}  % hash (object)
+                     | #{binary() => json_node()}.  % hash (object)
 
--type jsonpath_funspec() :: {Name::binary(), Fun::jsonpath_fun()} .
+-type jsonpath_funspecs() :: [{Name::binary(), Fun::jsonpath_fun()}] |
+                             #{Name :: binary() => Fun :: jsonpath_fun()}.
 -type jsonpath_fun() :: fun(({CurrentNode::json_node(), RootDoc::json_node()}, Args::[any()]) ->
                                    Return::json_node()).
 
 
 execute(Path, Doc) ->
-    execute(Path, Doc, []).
+    execute(Path, Doc, #{}).
 
--spec execute(jsonpath(), json_node(), [jsonpath_funspec()]) -> [json_node()].
+-spec execute(jsonpath(), json_node(), jsonpath_funspecs()) -> [json_node()].
+execute(Path, Doc, FunctionsList) when is_list(FunctionsList) ->
+    execute(Path, Doc, maps:from_list(FunctionsList));
 execute(Path, Doc, Functions) ->
     {ok, Tokens, _} = ejsonpath_scan:string(Path),
     {ok, Tree} = ejsonpath_parse:parse(Tokens),
@@ -72,8 +76,8 @@ execute_step([], Ctx) ->
     Ctx.
 
 
-apply_predicate(Key, {Pairs}, hash, _Ctx) when is_binary(Key) ->
-    case proplists:get_value(Key, Pairs) of
+apply_predicate(Key, Hash, hash, _Ctx) when is_binary(Key) ->
+    case hash_get(Key, Hash, undefined) of
         undefined -> [];
         Value -> [Value]
     end;
@@ -85,20 +89,22 @@ apply_predicate({index_expr, Script}, Hash, hash, Ctx) ->
 apply_predicate({index_expr, Script}, L, array, Ctx) ->
     Idx = eval_script(Script, L, Ctx),
     apply_predicate({slice_list, [Idx]}, L, array, Ctx);
-apply_predicate({bin_expr, Script}, {Pairs}, hash, Ctx) ->
-    [V || {_K, V} <- Pairs, boolean_value(eval_script(Script, V, Ctx))];
+apply_predicate({bin_expr, Script}, Hash, hash, Ctx) ->
+    lists:filter(
+      fun(V) ->
+              boolean_value(eval_script(Script, V, Ctx))
+      end, hash_values(Hash));
 apply_predicate({bin_expr, Script}, L, array, Ctx) ->
     [V || V <- L, boolean_value(eval_script(Script, V, Ctx))];
 apply_predicate({slice_list, Items}, L, array, _Ctx) ->
     slice_list(Items, L, length(L));
-apply_predicate({slice_list, Items}, {Pairs}, hash, _Ctx) ->
+apply_predicate({slice_list, Items}, Hash, hash, _Ctx) ->
     %% FIXME: don't insert undefined when key missing!
-    [proplists:get_value(K, Pairs)
-    || K <- Items];
+    [hash_get(K, Hash, undefined) || K <- Items];
 apply_predicate({slice, Begin, End, Step}, L, array, _Ctx) ->
     slice_step(Begin, End, Step, L);
-apply_predicate('*', {Pairs}, hash, _Ctx) ->
-    [V || {_K, V} <- Pairs];
+apply_predicate('*', Hash, hash, _Ctx) ->
+    hash_values(Hash);
 apply_predicate('*', L, array, _Ctx) ->
     L.
 
@@ -107,7 +113,7 @@ eval_script(Key, _, _) when is_binary(Key) ->
 eval_script(Idx, _, _) when is_number(Idx) ->
     Idx;
 eval_script({function_call, Name, Args}, CurNode, #context{functions=Funs, root=Root}) ->
-    Fun = proplists:get_value(Name, Funs),
+    Fun = maps:get(Name, Funs),
     Fun({CurNode, Root}, Args);
 eval_script({bin_op, '==', L, R}, CurNode, Ctx) ->
     eval_binary_op(L, R, CurNode, Ctx, fun(X, Y) -> X == Y end);
@@ -173,14 +179,22 @@ boolean_value(false) ->
 boolean_value(_) ->
     true.
 
+hash_values({KV}) ->
+    [V || {_K, V} <- KV];
+hash_values(Map) ->
+    maps:values(Map).
 
+hash_get(K, {KV}, Default) ->
+    proplists:get_value(K, KV, Default);
+hash_get(K, Map, Default) ->
+    maps:get(K, Map, Default).
 
 element_type(L) when is_list(L) ->
     array;
+element_type(Map) when is_map(Map) ->
+    hash;
 element_type({L}) when is_list(L) ->
     hash;
-%% element_type({_, _}) ->
-%%     hash_pair;
 element_type(Bin) when is_binary(Bin) ->
     string;
 element_type(Num) when is_number(Num) ->
