@@ -7,6 +7,8 @@
 
 -module(ejsonpath_tests).
 
+-compile([export_all, nowarn_export_all]).
+
 -include_lib("eunit/include/eunit.hrl").
 
 cases() ->
@@ -112,13 +114,8 @@ cases() ->
       "$.store.LOLs.Cats", [<<"yes">>]}
     ].
 
-jiffy_test_() ->
-    Doc = get_doc([]),
-    Tests = cases(),
-    do_test(Doc, Tests).
-
-maps_test_() ->
-    Doc = get_doc([return_maps]),
+cases_test() ->
+    Doc = get_doc(),
     Tests = cases(),
     do_test(Doc, Tests).
 
@@ -140,6 +137,6 @@ do_test(Doc, Pairs) ->
                end}
       end, Pairs).
 
-get_doc(Opts) ->
+get_doc() ->
     {ok, Bin} = file:read_file("./test/doc.json"),
-    jiffy:decode(Bin, Opts).
+    jsx:decode(Bin, [return_maps]).

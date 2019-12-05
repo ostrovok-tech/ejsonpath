@@ -1,4 +1,7 @@
 -module(fixture_tests).
+
+-compile([export_all, nowarn_export_all]).
+
 -include_lib("eunit/include/eunit.hrl").
 
 %% Helpers
@@ -6,7 +9,7 @@
 get_file(FileName) ->
     Path = filename:join("./test/fixtures/", FileName),
     {ok, Bin} = file:read_file(Path),
-    jiffy:decode(Bin).
+    jsx:decode(Bin, [return_maps]).
 
 -define(check_doc(Doc, Pattern, Expected),
     ?assertEqual(Expected, ejsonpath:execute(Pattern, Doc))).
