@@ -38,21 +38,17 @@
                      | binary()                     % string
                      | number()                     % int/float
                      | [json_node()]                % array
-                     | {[{binary(), json_node()}]}  % hash (object)
                      | #{binary() => json_node()}.  % hash (object)
 
--type jsonpath_funspecs() :: [{Name::binary(), Fun::jsonpath_fun()}] |
-                             #{Name :: binary() => Fun :: jsonpath_fun()}.
--type jsonpath_fun() :: fun(({CurrentNode::json_node(), RootDoc::json_node()}, Args::[any()]) ->
-                                   Return::json_node()).
-
+-type jsonpath_funspecs() :: #{ Name :: binary() => Fun :: jsonpath_fun() }.
+-type jsonpath_fun() :: fun( ( { CurrentNode :: json_node(), RootDoc :: json_node()}, Args :: [any()] ) ->
+                            Return :: json_node()).
 
 execute(Path, Doc) ->
     execute(Path, Doc, #{}).
 
 -spec execute(jsonpath(), json_node(), jsonpath_funspecs()) -> [json_node()].
-execute(Path, Doc, FunctionsList) when is_list(FunctionsList) ->
-    execute(Path, Doc, maps:from_list(FunctionsList));
+
 execute(Path, Doc, Functions) ->
     {ok, Tokens, _} = ejsonpath_scan:string(Path),
     {ok, Tree} = ejsonpath_parse:parse(Tokens),
@@ -81,7 +77,7 @@ execute_step([], Ctx) ->
 
 
 apply_predicate(Key, Hash, hash, _Ctx) when is_binary(Key) ->
-    case hash_get(Key, Hash, undefined) of
+    case maps:get(Key, Hash, undefined) of
         undefined -> [];
         Value -> [Value]
     end;
@@ -97,18 +93,18 @@ apply_predicate({bin_expr, Script}, Hash, hash, Ctx) ->
     lists:filter(
       fun(V) ->
               boolean_value(eval_script(Script, V, Ctx))
-      end, hash_values(Hash));
+      end, maps:values(Hash));
 apply_predicate({bin_expr, Script}, L, array, Ctx) ->
     [V || V <- L, boolean_value(eval_script(Script, V, Ctx))];
 apply_predicate({slice_list, Items}, L, array, _Ctx) ->
     slice_list(Items, L, length(L));
 apply_predicate({slice_list, Items}, Hash, hash, _Ctx) ->
     %% FIXME: don't insert undefined when key missing!
-    [hash_get(K, Hash, undefined) || K <- Items];
+    [maps:get(K, Hash, undefined) || K <- Items];
 apply_predicate({slice, Begin, End, Step}, L, array, _Ctx) ->
     slice_step(Begin, End, Step, L);
 apply_predicate('*', Hash, hash, _Ctx) ->
-    hash_values(Hash);
+    maps:values(Hash);
 apply_predicate('*', L, array, _Ctx) ->
     L.
 
@@ -170,8 +166,6 @@ slice_step(_Begin, _End, _Step, _L) ->
 %% type casts
 boolean_value([]) ->
     false;
-boolean_value({[]}) ->
-    false;
 boolean_value(<<>>) ->
     false;
 boolean_value(null) ->
@@ -183,21 +177,9 @@ boolean_value(false) ->
 boolean_value(_) ->
     true.
 
-hash_values({KV}) ->
-    [V || {_K, V} <- KV];
-hash_values(Map) ->
-    maps:values(Map).
-
-hash_get(K, {KV}, Default) ->
-    proplists:get_value(K, KV, Default);
-hash_get(K, Map, Default) ->
-    maps:get(K, Map, Default).
-
 element_type(L) when is_list(L) ->
     array;
 element_type(Map) when is_map(Map) ->
-    hash;
-element_type({L}) when is_list(L) ->
     hash;
 element_type(Bin) when is_binary(Bin) ->
     string;
