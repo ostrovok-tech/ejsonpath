@@ -17,6 +17,10 @@
 
 -module(ejsonpath).
 
+-ifdef(TEST).
+-compile([export_all, nowarn_export_all]).
+-endif.
+
 -export([execute/2, execute/3]).
 
 -export_type([json_node/0, jsonpath_funspecs/0, jsonpath_fun/0]).
