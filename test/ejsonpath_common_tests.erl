@@ -23,6 +23,7 @@ type_test() ->
     
     % string
     ?assertEqual(string, ejsonpath_common:type(<<>>)),
+    ?assertEqual(string, ejsonpath_common:type(xyz)),
     ?assertEqual(string, ejsonpath_common:type(<<"xyz">>)),
 
     % number
