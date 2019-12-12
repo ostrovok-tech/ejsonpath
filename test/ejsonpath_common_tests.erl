@@ -40,13 +40,14 @@ type_test() ->
     ok.
 
 index_test() ->
-    ?assertError(badarg, ejsonpath_common:index(0, -1)),
-    ?assertError(badarg, ejsonpath_common:index(0, 0)),
-    ?assertError(badarg, ejsonpath_common:index(1, 0)),
-    ?assertError(badarg, ejsonpath_common:index(1, 1)),
+    ?assertEqual({error, badarg}, ejsonpath_common:index(0, -1)),
+    ?assertEqual({error, badarg}, ejsonpath_common:index(0, 0)),
+    ?assertEqual({error, badarg}, ejsonpath_common:index(1, 0)),
+    ?assertEqual({error, badarg}, ejsonpath_common:index(1, 1)),
+    ?assertEqual({error, badarg}, ejsonpath_common:index(<<"10">>, 1)),
 
-    ?assertEqual(1, ejsonpath_common:index(0, 1)),
-    ?assertEqual(5, ejsonpath_common:index(4, 10)),
+    ?assertEqual({ok, 1}, ejsonpath_common:index(0, 1)),
+    ?assertEqual({ok, 5}, ejsonpath_common:index(4, 10)),
 
     ok.
 
@@ -61,4 +62,22 @@ insert_list_test() ->
     ?assertEqual([x,y,z], ejsonpath_common:insert_list(2, y, [x,a,z])),
     ?assertEqual([x,y,z], ejsonpath_common:insert_list(3, z, [x,y,a])),
     
+    ok.
+
+slice_seq_test() ->
+    ?assertEqual({error, badarg}, ejsonpath_common:slice_seq(0, 0, 0, 0)),
+    ?assertEqual({error, badarg}, ejsonpath_common:slice_seq(0, 0, 0, -1)),
+    ?assertEqual({error, badarg}, ejsonpath_common:slice_seq(0, 0, -1, 0)),
+    
+    ?assertEqual([], ejsonpath_common:slice_seq(0, 0, 1, 3)),
+    ?assertEqual([0], ejsonpath_common:slice_seq(0, 1, 1, 3)),
+    ?assertEqual([0, 1, 2], ejsonpath_common:slice_seq(0, 3, 1, 3)),
+    ?assertEqual([0, 1, 2], ejsonpath_common:slice_seq(0, '$end', 1, 3)),
+    ?assertEqual([0, 1], ejsonpath_common:slice_seq(0, -1, 1, 3)),
+    ?assertEqual([1], ejsonpath_common:slice_seq(1, -1, 1, 3)),
+
+    ?assertEqual([], ejsonpath_common:slice_seq(10, 10, 1, 4)),
+    ?assertEqual([], ejsonpath_common:slice_seq(10, -1, 1, 3)),
+    ?assertEqual([0,1,2], ejsonpath_common:slice_seq(0, 10, 1, 3)),
+
     ok.

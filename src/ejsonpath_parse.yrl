@@ -52,16 +52,24 @@
 %% }
 
 Nonterminals
-expr axis
-predicate step steps raw_predicate
-slice comma_slice sint index_expr
-binary_expr script operand bin_operator
-function_call function_args function_argument.
+expr
+axis steps step
+predicate key_predicate
+access_list 
+filter_expr transform_expr
+slice
+script function_call function_args function_argument
+operand bin_operator sint
+.
 
 Terminals
-'$' '..' '@' '[' ']' '.' key int
-'*' ',' ':'
-'?' '(' ')' string '==' '!=' '<' '>' '&&' '+' '-' '/'.
+'$' '..' '.' '*' 
+'[' ']' ',' ':' 
+'?' '(' ')'
+'+' '/' '-' 
+'@' '==' '!=' '<' '>' '&&' '||' 
+string key int
+.
 
 Rootsymbol expr.
 
@@ -74,84 +82,89 @@ Left 300 '-'.
 Left 400 '/'.
 Left 400 '*'.
 Nonassoc 400 '&&'.
+Nonassoc 400 '||'.
 
 expr -> '$' steps : {root, '$2'}.
+expr -> '$' axis  : {root, '$2'}.
+expr -> '$'       : {root, '$'}.
 
-steps -> step : {steps, ['$1']}.
-steps -> step steps : append_step('$1', '$2').
+steps -> step       : ['$1'].
+steps -> step steps : ['$1' | '$2'].
 
-step -> predicate : {child, '$1'}.
-step -> axis raw_predicate : {'$1', '$2'}.  %% WTF?
+step -> predicate          : {child, '$1'}.
+step -> axis key_predicate : {'$1', '$2'}.
 
-axis -> '.' : child.
+axis -> '.'  : child.
 axis -> '..' : descendant.
 
-predicate -> '[' binary_expr ']' : {refine, '$2'}.
-predicate -> '[' index_expr ']' : {refine, '$2'}.
-predicate -> '[' slice ']' : {refine, '$2'}.
-predicate -> '[' comma_slice ']' : {refine, '$2'}.
-predicate -> '[' '*' ']' : {refine, value('$2')}.
-% predicate -> '[' string ']' : {refine, value('$2')}. this one defined in 'comma_slice' rule
 
-raw_predicate -> key : {refine, value('$1')}.
-raw_predicate -> '*' : {refine, value('$1')}.
+predicate -> '[' filter_expr ']'    : {predicate, '$2'}.
+predicate -> '[' transform_expr ']' : {predicate, '$2'}.
+predicate -> '[' access_list ']'    : {predicate, '$2'}.
+predicate -> '[' slice ']'          : {predicate, '$2'}.
+predicate -> '[' '*' ']'            : {predicate, {key, value('$2')}}.
+
+key_predicate -> key : {predicate, {key, value('$1')}}.
+key_predicate -> '*' : {predicate, {key, value('$1')}}.
 
 %% ?(a=="b")
 %% ?("ololol")
 %% ?(100500)
 %% ?(@==100500)
-binary_expr -> '?' '(' script ')' : {bin_expr, '$3'}.
+filter_expr -> '?' '(' script ')' : {filter_expr, '$3'}.
 
-index_expr -> '(' script ')' : {index_expr, '$2'}.
+transform_expr -> '(' script ')' : {transform_expr, '$2'}.
 
-script -> operand : '$1'.
+script -> operand                    : '$1'.
 script -> script bin_operator script : {bin_op, '$2', '$1', '$3'}.
-script -> function_call : '$1'.
+script -> function_call              : '$1'.
 
-function_call -> key '(' ')' : {function_call, value('$1'), []}.
-function_call -> key '(' function_args ')' : {function_call, value('$1'), '$3'}.
+function_call -> key '(' ')'               : {function_call, func_value('$1'), []}.
+function_call -> key '(' function_args ')' : {function_call, func_value('$1'), '$3'}.
 
-function_args -> function_argument : ['$1'].
+function_args -> function_argument                   : ['$1'].
 function_args -> function_argument ',' function_args : ['$1' | '$3'].
 
 %% TODO: function_argument == operand
 function_argument -> string : value('$1').
-function_argument -> sint : value('$1').
+function_argument -> sint   : value('$1').
 
-operand -> string : value('$1').
-operand -> '@' : value('$1').
-operand -> '@' steps : '$2'.
-operand -> int : value('$1').
-%% operand -> expr.
+operand -> '@'       : {op, value('$1')}.
+operand -> '@' steps : {op, '$2'}.
+operand -> int       : {op, value('$1')}.
+operand -> string    : {op, value('$1')}.
+operand -> expr      : {op, '$1'}.
 
 bin_operator -> '==' : value('$1').
 bin_operator -> '!=' : value('$1').
-bin_operator -> '>' : value('$1').
-bin_operator -> '<' : value('$1').
+bin_operator -> '>'  : value('$1').
+bin_operator -> '<'  : value('$1').
 bin_operator -> '&&' : value('$1').
-bin_operator -> '+' : value('$1').
-bin_operator -> '-' : value('$1').
-bin_operator -> '/' : value('$1').
-bin_operator -> '*' : value('$1').
+bin_operator -> '||' : value('$1').
+bin_operator -> '+'  : value('$1').
+bin_operator -> '-'  : value('$1').
+bin_operator -> '/'  : value('$1').
+bin_operator -> '*'  : value('$1').
 
 %% [1:-1]
 %% [1:-1:2]
 %% [:-1]
-%% slice -> sint : {slice, value('$1'), value('$1'), 1}.
-slice -> int ':' sint ':' int : {slice, value('$1'), value('$3'), value('$5')}.
-slice -> int ':' sint : {slice, value('$1'), value('$3'), 1}.
-slice -> int ':' : {slice, value('$1'), -1, 1}.
-slice -> ':' sint : {slice, 0, value('$2'), 1}.
+%% [:]
+slice -> sint ':' sint ':' int : {slice, value('$1'), value('$3'), value('$5')}.
+slice -> sint ':' sint         : {slice, value('$1'), value('$3'), 1}.
+slice -> sint ':'              : {slice, value('$1'), '$end', 1}.
+slice -> ':' sint              : {slice, 0, value('$2'), 1}.
+slice -> ':'                   : {slice, 0, '$end', 1}.
 
 %% [1]
 %% [1,2,3]
 %% ["a","b"]
-comma_slice -> sint : {slice_list, [value('$1')]}.
-comma_slice -> sint ',' comma_slice : append_comma_slice(value('$1'), '$3').
-comma_slice -> string : {slice_list, [value('$1')]}.
-comma_slice -> string ',' comma_slice : append_comma_slice(value('$1'), '$3').
+access_list -> sint                  : {access_list, [value('$1')]}.
+access_list -> sint ',' access_list   : append_access_list(value('$1'), '$3').
+access_list -> string                : {access_list, [value('$1')]}.
+access_list -> string ',' access_list : append_access_list(value('$1'), '$3').
 
-sint -> int : '$1'.
+sint -> int     : '$1'.
 sint -> '-' int : {int, 0, -value('$2')}.
 
 
@@ -161,8 +174,8 @@ value({Token, _Line}) ->
 value({_Token, _Line, Value}) ->
     Value.
 
-append_comma_slice(Sint, {slice_list, List}) ->
-    {slice_list, [Sint | List]}.
+func_value({_Token, _Line, Value}) when is_binary(Value) ->
+    erlang:binary_to_atom(Value, utf8).
 
-append_step(Step, {steps, Steps}) ->
-    {steps, [Step | Steps]}.
+append_access_list(Sint, {access_list, List}) ->
+    {access_list, [Sint | List]}.
