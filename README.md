@@ -18,16 +18,17 @@ Examples
 Doc = jiffy:decode(Bin, [return_maps]).
 
 %% return 1'st book author
-[<<"Nigel Rees">>] = ejsonpath:execute("$.store.book[0].author", Doc).
+{[<<"Nigel Rees">>], ["$['store']['book'][0]['author']"]} = ejsonpath:q("$.store.book[0].author", Doc).
 
 %% return 1'st book categody and author
-[<<"reference">>,
- <<"Nigel Rees">>] = ejsonpath:execute("$.store.book[0]['category','author']", Doc).
+{[<<"reference">>,<<"Nigel Rees">>],
+ ["$['store']['book'][0]['category']",
+  "$['store']['book'][0]['author']"]} = ejsonpath:q("$.store.book[0]['category','author']", Doc).
 
 %% return only reference book authors
 %% `Funs' is a map or propist of `Name` and `Fun` pairs (see Fun spec in the sources)
 Funs = #{
- <<"filter_category">> =>
+ filter_category =>
   fun({Map, _Doc}, [CategoryName]) ->
      case maps:find(<<"category">>, Map) of
          {ok, CategoryName} -> true;
@@ -35,8 +36,7 @@ Funs = #{
      end
   end
 },
-[<<"Nigel Rees">>] = ejsonpath:execute(
-                     "$.store.book[?(filter_category('reference'))].author", Doc, Funs).
+{[<<"Nigel Rees">>],["$['store']['book'][0]['author']"]} = ejsonpath:q("$.store.book[?(filter_category('reference'))].author", Doc, Funs).
 ```
 More examples in tests.
 
@@ -68,7 +68,7 @@ as close as possible.
 +-----------------------+------------------------+-----------+
 |Eval index             | `$[('one')]`           | Partial** |
 +-----------------------+------------------------+-----------+
-|Recursive descent      | `..`                   | N         |
+|Recursive descent      | `..`                   | Y         |
 +-----------------------+------------------------+-----------+
 
 * Only step=1 supported now
@@ -86,9 +86,8 @@ TODO
 ----
 
 * Implement missing features
- * Python slicing step support. (Currently only step==1 supported)
- * Recursive descent (supported by parser, need evaluator)
- * Eval filter / index - allow path expressions and operators `$[?(@.category)]`
+* Python slicing step support. (Currently only step==1 supported)
+* Eval filter / index - allow path expressions and operators `$[?(@.category)]`
 
 Other implementations
 ---------------------
