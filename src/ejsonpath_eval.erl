@@ -4,21 +4,30 @@
 -compile([export_all, nowarn_export_all]).
 -endif.
 
--record(argument, {type, node, path}).
+-include("./ejsonpath.hrl").
+-import(ejsonpath_common, [argument/2, argument/3, script_eval/3]).
 
 -export([
-    eval/4
+    eval/4,
+    eval_step/3
 ]).
 
 eval({root, '$'}, Node, _, _) ->
     {[Node], ["$"]};
 eval({root, Descendant}, Node, _, _) when is_atom(Descendant) ->
-    unzip(children(Descendant, [argument(Node, "$")]));
+    ejsonpath_common:unzip(children(Descendant, [argument(Node, "$")]));
 eval({root, Predicates}, Node, Funcs, Options) ->
     Context = #{
         root => Node,
         opts => Options,
-        funcs => Funcs
+        funcs => Funcs,
+
+        eval_root => fun (SubQuery) -> 
+            eval(SubQuery, Node, Funcs, Options)
+        end,
+        eval_step => fun (SubQuery, CurrNode, Ctx) -> 
+            eval_step(SubQuery, [CurrNode], Ctx)
+        end
     },
     eval_step(Predicates, [argument(Node, "$")], Context).
 
@@ -29,7 +38,7 @@ eval_step([{Children, {predicate, Predicate}} | Rest], Result, Cxt) ->
             Acc ++ apply_eval(Predicate, Arg, Cxt)
         end, [], children(Children, Result)),
     eval_step(Rest, NewResult, Cxt);
-eval_step([], Result, _) -> unzip(Result);
+eval_step([], Result, _) -> ejsonpath_common:unzip(Result);
 eval_step(_, _, _) ->
     erlang:error(not_implemented).
 
@@ -63,7 +72,7 @@ apply_eval({access_list, Keys}, #argument{type = hash, node = Node, path = Path}
 % {filter_expr, Script}
 apply_eval({filter_expr, Script}, #argument{type = hash, node = Node, path = Path} = Arg, Ctx) ->
     Keys = lists:reverse(maps:fold(fun (Key, Value, Acc) -> 
-        case to_boolean(script_eval(Script, argument(Value, Path, Key), Ctx)) of
+        case ejsonpath_common:to_boolean(script_eval(Script, argument(Value, Path, Key), Ctx)) of
             false -> Acc;
             _ -> [Key|Acc]
         end
@@ -71,14 +80,14 @@ apply_eval({filter_expr, Script}, #argument{type = hash, node = Node, path = Pat
     apply_eval({access_list, Keys}, Arg, Ctx);
 apply_eval({filter_expr, Script}, #argument{type = array, node = Node, path = Path} = Arg, Ctx) ->
     {_, Idxs} = lists:foldl(fun (Item, {Idx, Acc}) ->
-        case to_boolean(script_eval(Script, argument(Item, Path, Idx), Ctx)) of
+        case ejsonpath_common:to_boolean(script_eval(Script, argument(Item, Path, Idx), Ctx)) of
             false -> {Idx+1, Acc};
             _ -> {Idx+1, [Idx|Acc]}
         end
     end, {0, []}, Node),
     apply_eval({access_list, lists:reverse(Idxs)}, Arg, Ctx);
 apply_eval({filter_expr, Script}, #argument{} = Arg, Ctx) ->
-    case to_boolean(script_eval(Script, Arg, Ctx)) of
+    case ejsonpath_common:to_boolean(script_eval(Script, Arg, Ctx)) of
         false -> [];
         _ -> [Arg]
     end;
@@ -110,63 +119,6 @@ apply_eval(P, _, _) ->
     erlang:display({not_implemented, P}),
     erlang:error(not_implemented).
 
-script_eval({op, _} = Op, Arg, Ctx) ->
-    op_eval(Op, Arg, Ctx);
-script_eval({function_call, Name, Args}, #argument{node = Node}, #{funcs := Funcs, root := Root}) -> 
-    Func = maps:get(Name, Funcs),
-    Func({Node, Root}, Args);
-script_eval({bin_op, '==', L, R}, Arg = #argument{}, Ctx) ->
-    binary_op_eval(L, R, Arg, Ctx, fun(X, Y) -> X == Y end);
-script_eval({bin_op, '!=', L, R}, Arg = #argument{}, Ctx) ->
-    binary_op_eval(L, R, Arg, Ctx, fun(X, Y) -> X /= Y end);
-script_eval({bin_op, '>', L, R}, Arg = #argument{}, Ctx) ->
-    binary_op_eval(L, R, Arg, Ctx, fun(X, Y) -> X > Y end);
-script_eval({bin_op, '<', L, R}, Arg = #argument{}, Ctx) ->
-    binary_op_eval(L, R, Arg, Ctx, fun(X, Y) -> X < Y end);
-script_eval({bin_op, '&&', L, R}, Arg = #argument{}, Ctx) ->
-    binary_op_eval(L, R, Arg, Ctx, fun(X, Y) -> X andalso Y end);
-script_eval({bin_op, '||', L, R}, Arg = #argument{}, Ctx) ->
-    binary_op_eval(L, R, Arg, Ctx, fun(X, Y) -> X orelse Y end);
-script_eval({bin_op, Op, _L, _R}, _, _) ->
-    erlang:error({not_implemented, bin_op, Op});
-script_eval(S, _, _) ->
-    erlang:display({not_implemented, S}),
-    erlang:error(not_implemented).
-
-binary_op_eval(Lhs, Rhs, Node, Ctx, Op) ->
-    case {op_eval(Lhs, Node, Ctx), op_eval(Rhs, Node, Ctx)} of
-        {[L], [R]} -> Op(L, R);
-        { L,  [R]} -> Op(L, R);
-        {[L],  R } -> Op(L, R);
-        { L,   R } -> Op(L, R)
-    end.
-
-op_eval({op, '@'}, Arg, _) ->
-    Arg;
-op_eval({op, Operand}, _, _) when is_binary(Operand) orelse is_number(Operand) ->
-    Operand;
-op_eval({op, Predicates}, Arg, Ctx) when is_list(Predicates) ->
-    {Nodes, _ } = eval_step(Predicates, [Arg], Ctx),
-    Nodes;
-op_eval({op, {root, _} = SubQuery}, _, #{root := Root, opts := Options, funcs := Funcs}) ->
-    {Nodes, _} = eval(SubQuery, Root, Funcs, Options),
-    Nodes;
-op_eval(Script, Node, Ctx) ->
-    script_eval(Script, Node, Ctx).
-
-argument(Node, Path) ->
-    #argument{
-        type = ejsonpath_common:type(Node),
-        node = Node,
-        path = Path
-    }.
-argument(Node, ParentPath, Key) ->
-    #argument{
-        type = ejsonpath_common:type(Node),
-        node = Node,
-        path = ejsonpath_common:buildpath(Key, ParentPath)
-    }.
-
 children(child, Nodes) -> Nodes;
 children(descendant, Nodes) ->
     children_i(Nodes, []).
@@ -185,16 +137,3 @@ children_i([#argument{type = hash, node = Node, path = Path} = Arg | Rest], Acc)
     children_i(Rest, Acc ++ [Arg] ++ AddAcc);
 children_i([Arg = #argument{}| Rest], Acc) ->
     children_i(Rest, Acc ++ [Arg]).
-
-unzip(L) when is_list(L) -> 
-    unzip_i(L, {[], []}).
-unzip_i([], {Acc0, Acc1}) ->
-    {lists:reverse(Acc0), lists:reverse(Acc1)};
-unzip_i([ #argument{ node = Node, path = Path } | Rest], {AccNode, AccPath}) ->
-    unzip_i(Rest, {[Node|AccNode], [Path|AccPath]}).
-
-to_boolean(false) -> false;
-to_boolean(<<>>) -> false;
-to_boolean(0) -> false;
-to_boolean([]) -> false;
-to_boolean(_) -> true.

@@ -93,4 +93,45 @@ multimatch_test() ->
           ["$['nums'][0]","$['nums'][1]","$['nums'][2]"]
         }, 
         ejsonpath_transform:transform(?ast("$.nums.*"), O1, fun (E) -> E ++ [hd(lists:reverse(E)) + 1] end, #{}, [])),
+
+    O2 = #{
+        <<"outer">> => [
+            #{ <<"id">> => 0, <<"inner">> => [#{ <<"id">> => a}]},
+            #{ <<"id">> => 1, <<"inner">> => [#{ <<"id">> => a}]}
+        ]
+    },
+    ?assertEqual({#{<<"outer">> =>
+                        [#{<<"id">> => 0,<<"inner">> => [#{<<"id">> => b}]},
+                         #{<<"id">> => 1,<<"inner">> => [#{<<"id">> => b}]}]},
+                  ["$['outer'][0]['inner'][0]['id']",
+                   "$['outer'][1]['inner'][0]['id']"]}, 
+        ejsonpath_transform:transform(?ast("$.outer.*.inner[0].id"), O2, fun (a) -> b end, #{}, [])),
+    ok.
+
+filter_expr_test() ->
+    O = #{
+        <<"items">> => [
+            #{<<"id">> => 0, <<"value">> => yyy},
+            #{<<"id">> => 1, <<"value">> => yyy}
+        ]
+    },
+    ?assertEqual(
+        { #{
+            <<"items">> => [
+            #{<<"id">> => 0, <<"value">> => xxx},
+            #{<<"id">> => 1, <<"value">> => yyy}
+        ]
+        },  
+          ["$['items'][0]['value']"]
+        }, 
+        ejsonpath_transform:transform(?ast("$.items[?(@.id == 0)].value"), O, fun (_) -> xxx end, #{}, [])),
+
+    ?assertError(not_found, 
+        ejsonpath_transform:transform(?ast("$.items[?(@.id == 2)].value"), O, fun (_) -> xxx end, #{}, [])),
+    ok.
+
+slice_test() ->
+    O = [x, y, z, a, b, c],
+    ?assertEqual({[xxx,xxx,xxx,a,b,c],["$[0]","$[1]","$[2]"]},
+        ejsonpath_transform:transform(?ast("$[0:3]"), O, fun (_) -> xxx end, #{}, [])),
     ok.
