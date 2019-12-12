@@ -21,7 +21,8 @@
 -compile([export_all, nowarn_export_all]).
 -endif.
 
--export([q/2, q/3]).
+-export([q/2, q/3, q/4]).
+-export([tr/3, tr/4, tr/5]).
 
 -export_type([json_node/0, jsonpath_funcspecs/0, jsonpath_func/0]).
 
@@ -61,6 +62,22 @@ q(Query, Root, Functions, Options) ->
     {ok, Tree}      = ejsonpath_parse:parse(Tokens),
     %% try
     ejsonpath_eval:eval(Tree, Root, Functions, Options)
+    %% catch Class:Reason ->
+    %%         io:format(user, "~p~n~p~n~p~n",
+    %%                   [Class, Reason, erlang:get_stacktrace()]),
+    %%         {error, Class, Reason, erlang:get_stacktrace()}
+    %% end
+    .
+
+tr(Query, Root, Transform) ->
+    tr(Query, Root, Transform, #{}, []).
+tr(Query, Root, Transform, Functions) ->
+    tr(Query, Root, Transform, Functions, []).
+tr(Query, Root, Transform, Functions, Options) ->
+    {ok, Tokens, _} = ejsonpath_scan:string(Query),
+    {ok, Tree}      = ejsonpath_parse:parse(Tokens),
+    %% try
+    ejsonpath_transform:transform(Tree, Root, Transform, Functions, Options)
     %% catch Class:Reason ->
     %%         io:format(user, "~p~n~p~n~p~n",
     %%                   [Class, Reason, erlang:get_stacktrace()]),
