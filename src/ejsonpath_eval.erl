@@ -116,7 +116,7 @@ apply_eval({slice, Start, End, Step}, #argument{type = array, node = Node} = Arg
             apply_eval({access_list, Seq}, Arg, Ctx)
     end;
 apply_eval(P, _, _) ->
-    erlang:display({not_implemented, P}),
+    % erlang:display({not_implemented, P}),
     erlang:error(not_implemented).
 
 children(child, Nodes) -> Nodes;
