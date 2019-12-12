@@ -37,6 +37,20 @@ Funs = #{
   end
 },
 {[<<"Nigel Rees">>],["$['store']['book'][0]['author']"]} = ejsonpath:q("$.store.book[?(filter_category('reference'))].author", Doc, Funs).
+
+%% update only item id == 0
+O = #{
+  <<"items">> => [
+    #{<<"id">> => 0, <<"value">> => yyy},
+    #{<<"id">> => 1, <<"value">> => yyy}
+  ]
+},
+
+{#{<<"items">> =>
+       [#{<<"id">> => 0,<<"value">> => xxx},
+        #{<<"id">> => 1,<<"value">> => yyy}]},
+ ["$['items'][0]['value']"]} = ejsonpath:tr("$.items[?(@.id == 0)].value", O, fun(_) -> xxxend).
+
 ```
 More examples in tests.
 
