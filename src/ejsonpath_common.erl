@@ -141,7 +141,6 @@ op_eval({op, Operand}, _, _) when is_binary(Operand) orelse is_number(Operand) -
     Operand;
 op_eval({op, Predicates}, Arg, #{eval_step := EvalStep} = Ctx) when is_list(Predicates) ->
     {Nodes, _ } = EvalStep(Predicates, Arg, Ctx),
-    erlang:display({here, Nodes}),
     Nodes;
 op_eval({op, {root, _} = SubQuery}, _, #{eval_root := EvalRoot}) ->
     {Nodes, _} = EvalRoot(SubQuery),
