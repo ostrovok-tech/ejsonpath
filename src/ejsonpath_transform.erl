@@ -32,13 +32,13 @@ transform({root, Predicates}, Node, Transform, Funcs, Options) ->
     transform_step(Predicates, argument(Node, "$"), Context).
 
 % {key, '*'}
-transform_step([{child, {predicate, {key, '*'}}} | Rest], #argument{type = hash, node = Node, path = Path} = Arg, Ctx) ->
-    ?EJSONPATH_LOG({enter, key, '*', Path}),
+transform_step([{child, {predicate, {key, '*'}}} | Rest], #argument{type = hash, node = Node, path = _Path} = Arg, Ctx) ->
+    ?EJSONPATH_LOG({enter, key, '*', _Path}),
     Keys = maps:keys(Node),
     transform_step([{child, {predicate, {access_list, Keys}}}] ++ Rest, Arg, Ctx);
 
-transform_step([{child, {predicate, {key, '*'}}} | Rest], #argument{type = array, node = Node, path = Path} = Arg, Ctx) ->
-    ?EJSONPATH_LOG({enter, key, '*', Path}),
+transform_step([{child, {predicate, {key, '*'}}} | Rest], #argument{type = array, node = Node, path = _Path} = Arg, Ctx) ->
+    ?EJSONPATH_LOG({enter, key, '*', _Path}),
     Idxs = lists:seq(0, erlang:length(Node)-1),
     transform_step([{child, {predicate, {access_list, Idxs}}}] ++ Rest, Arg, Ctx);
 
@@ -88,8 +88,8 @@ transform_step([{child, {predicate, {filter_expr, Script}}}|Rest], #argument{typ
                 transform_step(Rest, argument(Value, Path, Idx), Ctx)
             end, Ctx)
     end;
-transform_step([{child, {predicate, {filter_expr, Script}}} | Rest], #argument{path = Path} = Arg, Ctx) ->
-    ?EJSONPATH_LOG({enter, filter_expr, Path, Script}),
+transform_step([{child, {predicate, {filter_expr, Script}}} | Rest], #argument{path = _Path} = Arg, Ctx) ->
+    ?EJSONPATH_LOG({enter, filter_expr, _Path, Script}),
     case ejsonpath_common:to_boolean(script_eval(Script, Arg, Ctx)) of
         false -> erlang:error(not_found);
         _ -> transform_step(Rest, Arg, Ctx)
