@@ -15,7 +15,7 @@ Examples
 
 ```erlang
 {ok, Bin} = file:read_file("test/doc.json").
-Doc = jiffy:decode(Bin, [return_maps]).
+Doc = jsx:decode(Bin, [return_maps]).
 
 %% return 1'st book author
 {[<<"Nigel Rees">>], ["$['store']['book'][0]['author']"]} = ejsonpath:q("$.store.book[0].author", Doc).
@@ -46,11 +46,20 @@ O = #{
   ]
 },
 
-{#{<<"items">> =>
+ejsonpath:tr("$.items[?(@.id == 0)].value", O, fun(_) -> xxx end).
+{
+  #{<<"items">> =>
        [#{<<"id">> => 0,<<"value">> => xxx},
         #{<<"id">> => 1,<<"value">> => yyy}]},
- ["$['items'][0]['value']"]} = ejsonpath:tr("$.items[?(@.id == 0)].value", O, fun(_) -> xxxend).
+  ["$['items'][0]['value']"]
+ 
 
+% delete item if query match
+ejsonpath_transform:tr("$.items[?(@.id == 0)]", O, fun (_) -> delete end, #{}, []))
+{ 
+  #{<<"items">> => [#{<<"id">> => 1,<<"value">> => yyy}]},
+  ["$['items'][0]"]
+}
 ```
 More examples in tests.
 

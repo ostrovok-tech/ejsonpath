@@ -69,6 +69,19 @@ q(Query, Root, Functions, Options) ->
     %% end
     .
 
+-type jsonpath_tr_result() :: {ok, json_node()}
+                            | {error, any()}
+                            | delete.
+
+-type jsonpath_tr_node() :: #{ type => atom(), node => json_node(), path => string()}.
+-type jsonpath_tr_func() :: 
+    fun ( ({match, jsonpath_tr_node()}) 
+        -> jsonpath_tr_result() ) 
+    | fun ( ({not_found, Path :: string(), Key :: string() | number(), jsonpath_tr_node()}) 
+        -> jsonpath_tr_result() ).
+
+-spec tr(jsonpath(), json_node(), jsonpath_tr_func(), jsonpath_funcspecs(), [any()]) -> {json_node(), [string()]}.
+
 tr(Query, Root, Transform) ->
     tr(Query, Root, Transform, #{}, []).
 tr(Query, Root, Transform, Functions) ->
