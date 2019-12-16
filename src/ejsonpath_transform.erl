@@ -13,7 +13,13 @@
 ]).
 
 transform({root, '$'}, Node, Transform, _, _) ->
-    {Transform(Node), ["$"]};
+    case Transform({match, to_arg(argument(Node, "$"))}) of
+        {error, Error} -> erlang:error(Error);
+        {ok, Result} -> {Result, ["$"]};
+        delete -> erlang:error(not_supported);
+
+        Invalid -> erlang:error({badreturn, Invalid})
+    end;
 
 transform({root, Predicates}, Node, Transform, Funcs, Options) ->
     Context = #{
@@ -22,7 +28,7 @@ transform({root, Predicates}, Node, Transform, Funcs, Options) ->
         funcs => Funcs,
 
         transform => Transform,
-         eval_root => fun (SubQuery) -> 
+        eval_root => fun (SubQuery) -> 
             ejsonpath_eval:eval(SubQuery, Node, Funcs, Options)
         end,
         eval_step => fun (SubQuery, CurrNode, Ctx) -> 
@@ -47,13 +53,13 @@ transform_step([{child, {predicate, {key, Key}}} | Rest], #argument{type = hash,
     ?EJSONPATH_LOG({enter, key, Key, Path}),
     apply_transform([Key], Arg, fun(_, Value) -> 
         transform_step(Rest, argument(Value, Path, Key), Ctx)
-    end, Ctx);
+    end, Ctx, Rest /= []);
 % {access_list, Keys}
 transform_step([{child, {predicate, {access_list, Keys}}} | Rest], #argument{path = Path} = Arg, Ctx) ->
     ?EJSONPATH_LOG({enter, access_list, Keys, Path}),
     apply_transform(Keys, Arg, fun(Key, Value) -> 
         transform_step(Rest, argument(Value, Path, Key), Ctx)
-    end, Ctx);
+    end, Ctx, Rest /= []);
 
 % {filter_expr, Script}
 transform_step([{child, {predicate, {filter_expr, Script}}} | Rest], #argument{type = hash, node = Node, path = Path} = Arg, Ctx) ->
@@ -70,7 +76,7 @@ transform_step([{child, {predicate, {filter_expr, Script}}} | Rest], #argument{t
         _ -> 
             apply_transform(Keys, Arg, fun(Key, Value) -> 
                 transform_step(Rest, argument(Value, Path, Key), Ctx)
-            end, Ctx)
+            end, Ctx, Rest /= [])
         end;
 transform_step([{child, {predicate, {filter_expr, Script}}}|Rest], #argument{type = array, node = Node, path = Path} = Arg, Ctx) ->
     ?EJSONPATH_LOG({enter, filter_expr, array, Path, Script}),
@@ -86,7 +92,7 @@ transform_step([{child, {predicate, {filter_expr, Script}}}|Rest], #argument{typ
         _ -> 
             apply_transform(lists:reverse(Idxs), Arg, fun(Idx, Value) -> 
                 transform_step(Rest, argument(Value, Path, Idx), Ctx)
-            end, Ctx)
+            end, Ctx, Rest /= [])
     end;
 transform_step([{child, {predicate, {filter_expr, Script}}} | Rest], #argument{path = _Path} = Arg, Ctx) ->
     ?EJSONPATH_LOG({enter, filter_expr, _Path, Script}),
@@ -104,32 +110,90 @@ transform_step([{child, {predicate, {slice, Start, End, Step}}} | Rest], #argume
             transform_step([{child, {predicate, {access_list, Seq}}}] ++ Rest, Arg, Ctx)
     end;
 
-transform_step([], #argument{node = Node, path = Path}, #{transform := Transform}) ->
-    ?EJSONPATH_LOG({match, Node, Path}),
-    {Transform(Node), [Path]};
+transform_step([], #argument{node = _Node, path = Path} = Arg, #{transform := Transform}) ->
+    ?EJSONPATH_LOG({match, _Node, Path}),
+    
+    case Transform({match, to_arg(Arg)}) of
+        {error, Error} -> erlang:error(Error);
+        {ok, Result} -> {Result, [Path]};
+        delete -> {'$delete', [Path]};
+        
+        Invalid -> erlang:error({badreturn, Invalid})
+    end;
 
 transform_step(_Pr, _A, _) ->
     ?EJSONPATH_LOG({not_implemented, _Pr, _A}),
     erlang:error(not_implemented).
 
-apply_transform(Keys, #argument{type = hash, node = Acc0}, Func, _) ->
+apply_transform(Keys, #argument{type = hash, node = Acc0, path = Path} = Arg, Func, Ctx, HaveOngoingQuery) ->
     lists:foldl(fun (Key, {Acc, Paths}) -> 
         case maps:get(Key, Acc, '$undefined') of
-            '$undefined' -> erlang:error(not_found);
+            '$undefined' -> 
+                case HaveOngoingQuery of
+                    true -> erlang:error(not_found);
+                    false ->
+                        % we handle not_found event only if last query item
+                        %% if no more query and item doesn't exists
+                        PathToBe = ejsonpath_common:buildpath(Key, Path),
+                        NotFoundHandler = notfound_func(Ctx, fun(_) -> erlang:error(not_found) end),
+                        case NotFoundHandler({not_found, PathToBe, Key, to_arg(Arg)}) of
+                            {error, Err} -> erlang:error(Err);
+                            {ok, NewAcc} -> {NewAcc, Paths ++ [PathToBe]};
+                        
+                            % on not_found and result is delete command
+                            % we return the current node (without the key)
+                            delete -> {Acc, Paths ++ [PathToBe]};
+
+                            Invalid -> erlang:error(Invalid)
+                        end
+                end;
             Value -> 
-                {NewValue, NewPaths} = Func(Key, Value),
-                {maps:put(Key, NewValue, Acc), Paths ++ NewPaths}
+                case Func(Key, Value) of
+                    {'$delete', NewPaths} ->
+                        {maps:remove(Key, Acc), Paths ++ NewPaths};
+                    {NewValue, NewPaths} ->
+                        {maps:put(Key, NewValue, Acc), Paths ++ NewPaths}
+                end
         end
     end, {Acc0, []}, Keys);
 
-apply_transform(Idxs, #argument{type = array, node = Acc0}, Func, _) ->
-    lists:foldl(fun (Idx0, {Acc, Paths}) -> 
+apply_transform(Idxs, #argument{type = array, node = Acc0, path = Path} = Arg, Func, Ctx, HaveOngoingQuery) ->
+    {NewNode, NewPaths} = lists:foldl(fun (Idx0, {Acc, Paths}) -> 
         case ejsonpath_common:index(Idx0, erlang:length(Acc)) of
-            {error, Err} -> erlang:error(Err);
+            {error, _} -> 
+                case HaveOngoingQuery of
+                    true -> erlang:error(not_found);
+                    false -> 
+                        PathToBe = ejsonpath_common:buildpath(Idx0, Path),
+                        NotFoundHandler = notfound_func(Ctx, fun(_) -> erlang:error(not_found) end),
+                        case NotFoundHandler({not_found, PathToBe, Idx0, to_arg(Arg)}) of
+                            {error, Err} -> erlang:error(Err);
+                            {ok, NewAcc} -> {NewAcc, Paths ++ [PathToBe]};
+                            delete -> {Acc, Paths ++ [PathToBe]};
+
+                            Invalid -> erlang:error(Invalid)
+                        end
+                end;
             {ok, Idx1} ->
-                {Value, NewPaths} = Func(Idx0, lists:nth(Idx1, Acc)),
-                {ejsonpath_common:insert_list(Idx1, Value, Acc), Paths ++ NewPaths}
+                case Func(Idx0, lists:nth(Idx1, Acc)) of
+                    {'$delete', NewPaths } ->
+                        {ejsonpath_common:insert_list(Idx1, '$deletion_marker', Acc), Paths ++ NewPaths};
+                    {Value, NewPaths} -> 
+                        {ejsonpath_common:insert_list(Idx1, Value, Acc), Paths ++ NewPaths}
+                end
         end
-    end, {Acc0, []}, Idxs);
-apply_transform(_,_,_,_) ->
+    end, {Acc0, []}, Idxs),
+    {lists:filter(fun (X) -> X /= '$deletion_marker' end, NewNode), NewPaths};
+apply_transform(_,_,_,_,_) ->
     erlang:error(not_found).
+
+to_arg(#argument{type = Type, node = Node, path = Path}) ->
+    #{ type => Type, node => Node, path => Path}.
+
+notfound_func(#{opts := Options, transform := Transform}, DefaultFunc) ->
+    case proplists:get_value(handle_not_found, Options, DefaultFunc) of
+        true -> Transform;
+        Func when is_function(Func) -> Func;
+        
+        _Invalid -> erlang:error(badarg)
+    end.
