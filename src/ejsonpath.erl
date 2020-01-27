@@ -24,6 +24,9 @@
 -export([q/2, q/3, q/4]).
 -export([tr/3, tr/4, tr/5]).
 
+-export([execute/2, execute/3]).
+-deprecated([execute/2, execute/3]).
+
 -export_type([json_node/0, jsonpath_funcspecs/0, jsonpath_func/0]).
 
 -type jsonpath() :: string().
@@ -48,7 +51,7 @@
 -type jsonpath_filter_func() 
     :: fun( ( { CurrentNode :: json_node(), RootNode :: json_node()}, Args :: [any()] ) ->
     Return :: boolean() ).
-        
+
 
 q(Query, Root) ->
     q(Query, Root, #{}, []).
@@ -68,6 +71,13 @@ q(Query, Root, Functions, Options) ->
     %%         {error, Class, Reason, erlang:get_stacktrace()}
     %% end
     .
+
+execute(Query, Root) ->
+    {Result, _Paths} = q(Query, Root, #{}, []),
+    Result.
+execute(Query, Root, Functions) ->
+    {Result, _Paths} = q(Query, Root, Functions, []),
+    Result.
 
 -type jsonpath_tr_result() :: {ok, json_node()}
                             | {error, any()}
