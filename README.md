@@ -55,11 +55,30 @@ ejsonpath:tr("$.items[?(@.id == 0)].value", O, fun(_) -> {ok, xxx} end).
  
 
 % delete item if query match
-ejsonpath:tr("$.items[?(@.id == 0)]", O, fun (_) -> delete end, #{}, []).
+Opts = [].
+ejsonpath:tr("$.items[?(@.id == 0)]", O, fun (_) -> delete end, Funcs, Opts).
 { 
   #{<<"items">> => [#{<<"id">> => 1,<<"value">> => yyy}]},
   ["$['items'][0]"]
 }
+
+% delete item if query not matched
+ejsonpath:tr("$.key", O, fun (_) -> delete end, Funcs, [handle_not_found]).
+{ 
+  #{<<"items">> => [#{<<"id">> => 1,<<"value">> => yyy}]},
+  ["$['items'][0]"]
+}
+
+% create element (query not matched)
+MatchFun = fun ({not_found, _Path, Key, #{node := OldMap}}) -> {ok, maps:put(Key, xxx, OldMap)} end.
+ejsonpath:tr("$.key", O, MatchFun, Funcs, [handle_not_found]).
+{#{<<"items">> =>
+       [#{<<"id">> => 0,<<"value">> => yyy},
+        #{<<"id">> => 1,<<"value">> => yyy}],
+   <<"key">> => xxx},
+ ["$['key']"]}
+
+
 ```
 More examples in tests.
 
