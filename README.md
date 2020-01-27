@@ -46,7 +46,7 @@ O = #{
   ]
 },
 
-ejsonpath:tr("$.items[?(@.id == 0)].value", O, fun(_) -> xxx end).
+ejsonpath:tr("$.items[?(@.id == 0)].value", O, fun(_) -> {ok, xxx} end).
 {
   #{<<"items">> =>
        [#{<<"id">> => 0,<<"value">> => xxx},
@@ -55,7 +55,7 @@ ejsonpath:tr("$.items[?(@.id == 0)].value", O, fun(_) -> xxx end).
  
 
 % delete item if query match
-ejsonpath_transform:tr("$.items[?(@.id == 0)]", O, fun (_) -> delete end, #{}, []))
+ejsonpath:tr("$.items[?(@.id == 0)]", O, fun (_) -> delete end, #{}, []).
 { 
   #{<<"items">> => [#{<<"id">> => 1,<<"value">> => yyy}]},
   ["$['items'][0]"]
