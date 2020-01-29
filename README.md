@@ -15,19 +15,20 @@ Examples
 
 ```erlang
 {ok, Bin} = file:read_file("test/doc.json").
-Doc = jiffy:decode(Bin, [return_maps]).
+Doc = jsx:decode(Bin, [return_maps]).
 
 %% return 1'st book author
-[<<"Nigel Rees">>] = ejsonpath:execute("$.store.book[0].author", Doc).
+{[<<"Nigel Rees">>], ["$['store']['book'][0]['author']"]} = ejsonpath:q("$.store.book[0].author", Doc).
 
 %% return 1'st book categody and author
-[<<"reference">>,
- <<"Nigel Rees">>] = ejsonpath:execute("$.store.book[0]['category','author']", Doc).
+{[<<"reference">>,<<"Nigel Rees">>],
+ ["$['store']['book'][0]['category']",
+  "$['store']['book'][0]['author']"]} = ejsonpath:q("$.store.book[0]['category','author']", Doc).
 
 %% return only reference book authors
 %% `Funs' is a map or propist of `Name` and `Fun` pairs (see Fun spec in the sources)
 Funs = #{
- <<"filter_category">> =>
+ filter_category =>
   fun({Map, _Doc}, [CategoryName]) ->
      case maps:find(<<"category">>, Map) of
          {ok, CategoryName} -> true;
@@ -35,8 +36,49 @@ Funs = #{
      end
   end
 },
-[<<"Nigel Rees">>] = ejsonpath:execute(
-                     "$.store.book[?(filter_category('reference'))].author", Doc, Funs).
+{[<<"Nigel Rees">>],["$['store']['book'][0]['author']"]} = ejsonpath:q("$.store.book[?(filter_category('reference'))].author", Doc, Funs).
+
+%% update only item id == 0
+O = #{
+  <<"items">> => [
+    #{<<"id">> => 0, <<"value">> => yyy},
+    #{<<"id">> => 1, <<"value">> => yyy}
+  ]
+},
+
+ejsonpath:tr("$.items[?(@.id == 0)].value", O, fun(_) -> {ok, xxx} end).
+{
+  #{<<"items">> =>
+       [#{<<"id">> => 0,<<"value">> => xxx},
+        #{<<"id">> => 1,<<"value">> => yyy}]},
+  ["$['items'][0]['value']"]
+ 
+
+% delete item if query match
+Opts = [].
+ejsonpath:tr("$.items[?(@.id == 0)]", O, fun (_) -> delete end, Funcs, Opts).
+{ 
+  #{<<"items">> => [#{<<"id">> => 1,<<"value">> => yyy}]},
+  ["$['items'][0]"]
+}
+
+% delete item if query not matched
+ejsonpath:tr("$.key", O, fun (_) -> delete end, Funcs, [handle_not_found]).
+{ 
+  #{<<"items">> => [#{<<"id">> => 1,<<"value">> => yyy}]},
+  ["$['items'][0]"]
+}
+
+% create element (query not matched)
+MatchFun = fun ({not_found, _Path, Key, #{node := OldMap}}) -> {ok, maps:put(Key, xxx, OldMap)} end.
+ejsonpath:tr("$.key", O, MatchFun, Funcs, [handle_not_found]).
+% result is the new document modified and the "jsonpath"
+{#{<<"items">> =>
+       [#{<<"id">> => 0,<<"value">> => yyy},
+        #{<<"id">> => 1,<<"value">> => yyy}],
+   <<"key">> => xxx},
+ ["$['key']"]}
+
 ```
 More examples in tests.
 
@@ -68,7 +110,7 @@ as close as possible.
 +-----------------------+------------------------+-----------+
 |Eval index             | `$[('one')]`           | Partial** |
 +-----------------------+------------------------+-----------+
-|Recursive descent      | `..`                   | N         |
+|Recursive descent      | `..`                   | Y         |
 +-----------------------+------------------------+-----------+
 
 * Only step=1 supported now
@@ -86,9 +128,8 @@ TODO
 ----
 
 * Implement missing features
- * Python slicing step support. (Currently only step==1 supported)
- * Recursive descent (supported by parser, need evaluator)
- * Eval filter / index - allow path expressions and operators `$[?(@.category)]`
+* Python slicing step support. (Currently only step==1 supported)
+* Eval filter / index - allow path expressions and operators `$[?(@.category)]`
 
 Other implementations
 ---------------------
