@@ -62,6 +62,11 @@ key_access_test() ->
     ?assertEqual({[maps:get(<<"store">>, get_doc())], ["$['store']"]}, ejsonpath_eval:eval(?ast("$.store"), get_doc(), #{}, [])),
 
     ?assertEqual({[<<"red">>], ["$['store']['bicycle']['color']"]}, ejsonpath_eval:eval(?ast("$.store.bicycle.color"), get_doc(), #{}, [])),
+
+    ?assertEqual({[<<"reference">>], ["$['store']['book'][0]['category']"]},
+                 ejsonpath_eval:eval(?ast("$.store.book.0.category"), get_doc(), #{}, [])),
+
+    ?assertEqual({[<<"an-integer-key">>], ["$['store']['3']"]}, ejsonpath_eval:eval(?ast("$.store.3"), get_doc(), #{}, [])),
     
     ok.
 

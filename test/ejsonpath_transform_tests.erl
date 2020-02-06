@@ -40,6 +40,12 @@ key_access_test() ->
 
     ?assertEqual({#{<<"a">> => #{<<"a">> => y}},  ["$['a']['a']"]}, 
         ejsonpath_transform:transform(?ast("$.a.a"), #{<<"a">> => #{<<"a">> => x}}, fun ({match, #{node := x}}) -> {ok, y} end, #{}, [])),
+
+    ?assertEqual({#{<<"3">> => y},  ["$['3']"]}, 
+        ejsonpath_transform:transform(?ast("$.3"), #{<<"3">> => x}, fun ({match, #{node := x}}) -> 
+            {ok, y}
+        end, #{}, [])),
+
     ok.
 
 index_access_test() ->
@@ -51,6 +57,8 @@ index_access_test() ->
     ?assertError(not_found,
         ejsonpath_transform:transform(?ast("$.a[3]"), #{<<"a">> => [x, y, z]}, fun (_) -> {ok, y} end, #{}, [])),
     
+    ?assertEqual({#{<<"a">> => [y, y, z]},  ["$['a'][0]"]}, 
+        ejsonpath_transform:transform(?ast("$.a.0"), #{<<"a">> => [x, y, z]}, fun ({match, #{node := x}}) -> {ok, y} end, #{}, [])),
     ok.
 access_list_test() ->
     ?assertEqual(

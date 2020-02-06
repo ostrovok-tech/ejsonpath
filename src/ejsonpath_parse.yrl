@@ -105,6 +105,7 @@ predicate -> '[' slice ']'          : {predicate, '$2'}.
 predicate -> '[' '*' ']'            : {predicate, {key, value('$2')}}.
 
 key_predicate -> key : {predicate, {key, value('$1')}}.
+key_predicate -> int : {predicate, {key, value('$1')}}.
 key_predicate -> '*' : {predicate, {key, value('$1')}}.
 
 %% ?(a=="b")

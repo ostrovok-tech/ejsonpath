@@ -47,6 +47,16 @@ transform_step([{child, {predicate, {key, '*'}}} | Rest], #argument{type = array
     ?EJSONPATH_LOG({enter, key, '*', _Path}),
     Idxs = lists:seq(0, erlang:length(Node)-1),
     transform_step([{child, {predicate, {access_list, Idxs}}}] ++ Rest, Arg, Ctx);
+transform_step([{child, {predicate, {key, Key}}} | Rest],
+               #argument{type = array, node = _Node, path = _Path} = Arg, Ctx) when is_integer(Key) ->
+    ?EJSONPATH_LOG({enter, key, Key, _Path}),
+    transform_step([{child, {predicate, {access_list, [Key]}}}] ++ Rest, Arg, Ctx);
+
+transform_step([{child, {predicate, {key, Key}}} | Rest], #argument{type = hash, path = Path} = Arg, Ctx) when is_integer(Key) ->
+    ?EJSONPATH_LOG({enter, key, Key, Path}),
+    apply_transform([integer_to_binary(Key)], Arg, fun(_, Value) -> 
+        transform_step(Rest, argument(Value, Path, integer_to_binary(Key)), Ctx)
+    end, Ctx, Rest /= []);
 
 % {key, Key}
 transform_step([{child, {predicate, {key, Key}}} | Rest], #argument{type = hash, path = Path} = Arg, Ctx) ->

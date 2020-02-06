@@ -52,6 +52,12 @@ apply_eval({key, '*'}, #argument{type = array, node = Node} = Arg, Ctx) ->
     ?EJSONPATH_LOG({key, array, '*'}),
     Idxs = lists:seq(0, erlang:length(Node)-1),
     apply_eval({access_list, Idxs}, Arg, Ctx);
+apply_eval({key, Key}, #argument{type = array, node = Node} = Arg, Ctx) when is_integer(Key) ->
+    ?EJSONPATH_LOG({key, array, Key}),
+    apply_eval({access_list, [Key]}, Arg, Ctx);
+apply_eval({key, Key}, #argument{type = hash} = Arg, Ctx) when is_integer(Key) -> 
+    ?EJSONPATH_LOG({key, Key}),
+    apply_eval({access_list, [integer_to_binary(Key)]}, Arg, Ctx);
 apply_eval({key, Key}, #argument{type = hash} = Arg, Ctx) -> 
     ?EJSONPATH_LOG({key, Key}),
     apply_eval({access_list, [Key]}, Arg, Ctx);
